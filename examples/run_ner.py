@@ -300,7 +300,7 @@ def load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode):
 def main():
     parser = argparse.ArgumentParser()
 
-    ## Required parameters
+    # Required parameters
     parser.add_argument("--data_dir", default=None, type=str, required=True,
                         help="The input data dir. Should contain the training files for the CoNLL-2003 NER task.")
     parser.add_argument("--model_type", default=None, type=str, required=True,
@@ -310,7 +310,7 @@ def main():
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
-    ## Other parameters
+    # Other parameters
     parser.add_argument("--labels", default="", type=str,
                         help="Path to a file containing all labels. If not specified, CoNLL-2003 labels are used.")
     parser.add_argument("--config_name", default="", type=str,
@@ -359,7 +359,8 @@ def main():
     parser.add_argument("--save_steps", type=int, default=50,
                         help="Save checkpoint every X updates steps.")
     parser.add_argument("--eval_all_checkpoints", action="store_true",
-                        help="Evaluate all checkpoints starting with the same prefix as model_name ending and ending with step number")
+                        help="Evaluate all checkpoints starting with the same prefix as model_name ending and"
+                             "ending with step number")
     parser.add_argument("--no_cuda", action="store_true",
                         help="Avoid using CUDA when available")
     parser.add_argument("--overwrite_output_dir", action="store_true",
@@ -398,7 +399,7 @@ def main():
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = torch.cuda.device_count()
-    else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
+    else:  # Initializes the distributed backend which will take care of synchronizing nodes/GPUs
         torch.cuda.set_device(args.local_rank)
         device = torch.device("cuda", args.local_rank)
         torch.distributed.init_process_group(backend="nccl")
@@ -421,9 +422,10 @@ def main():
     # Use cross entropy ignore index as padding label id so that only real label ids contribute to the loss later
     pad_token_label_id = CrossEntropyLoss().ignore_index
 
-    # Load pretrained model and tokenizer
+    # Load pre-trained model and tokenizer
     if args.local_rank not in [-1, 0]:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        torch.distributed.barrier()
+        # Make sure only the first process in distributed training will download model & vocab
 
     args.model_type = args.model_type.lower()
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]

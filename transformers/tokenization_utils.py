@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tokenization classes for OpenAI GPT."""
+
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 SPECIAL_TOKENS_MAP_FILE = 'special_tokens_map.json'
 ADDED_TOKENS_FILE = 'added_tokens.json'
 TOKENIZER_CONFIG_FILE = 'tokenizer_config.json'
+
 
 class PreTrainedTokenizer(object):
     """ Base class for all tokenizers.
