@@ -1,4 +1,4 @@
-# Initially taken from Github's Python gitignore file
+# Iiiiinitially taken from Github's Python gitignore file
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -139,3 +139,13 @@ serialization_dir
 # emacs
 *.*~
 debug.env
+
+# specific folders for japanese ner
+datasets/jpner_1106/
+examples/cached_*
+examples/germeval-model/
+examples/jp-wiki-test/
+examples/jpner-model-test/
+examples/jpner-model-xlnet-test/
+examples/jpner-model/
+jp_pretrain_bert/Japanese_*
