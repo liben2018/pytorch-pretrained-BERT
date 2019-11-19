@@ -26,8 +26,9 @@ import random
 
 import numpy as np
 import torch
-from seqeval.metrics import precision_score, recall_score, f1_score
+from seqeval.metrics import precision_score, recall_score, f1_score, classification_report, accuracy_score
 from tensorboardX import SummaryWriter
+# from tensorboard import SummaryWriter
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
@@ -114,7 +115,8 @@ def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
     tr_loss, logging_loss = 0.0, 0.0
     model.zero_grad()
     train_iterator = trange(int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0])
-    set_seed(args)  # Added here for reproductibility (even between python 2 and 3)
+    set_seed(args)
+    # Added here for reproducibility (even between python 2 and 3)
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
         for step, batch in enumerate(epoch_iterator):
@@ -243,7 +245,9 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
         "loss": eval_loss,
         "precision": precision_score(out_label_list, preds_list),
         "recall": recall_score(out_label_list, preds_list),
-        "f1": f1_score(out_label_list, preds_list)
+        "f1": f1_score(out_label_list, preds_list),
+        "accuracy": accuracy_score(out_label_list, preds_list),
+        "report:": classification_report(out_label_list, preds_list, digits=2)
     }
 
     logger.info("***** Eval results %s *****", prefix)
@@ -274,7 +278,8 @@ def load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode):
                                                 cls_token_segment_id=2 if args.model_type in ["xlnet"] else 0,
                                                 sep_token=tokenizer.sep_token,
                                                 sep_token_extra=bool(args.model_type in ["roberta"]),
-                                                # roberta uses an extra separator b/w pairs of sentences, cf. github.com/pytorch/fairseq/commit/1684e166e3da03f5b600dbb7855cb98ddfcd0805
+                                                # roberta uses an extra separator b/w pairs of sentences,
+                                                # cf. github.com/pytorch/fairseq/commit/1684e166e3da03f5b600dbb7855cb98ddfcd0805
                                                 pad_on_left=bool(args.model_type in ["xlnet"]),
                                                 # pad on the left for xlnet
                                                 pad_token=tokenizer.convert_tokens_to_ids([tokenizer.pad_token])[0],
@@ -286,7 +291,9 @@ def load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode):
             torch.save(features, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        torch.distributed.barrier()
+        # Make sure only the first process in distributed training process the dataset,
+        # and the others will use the cache.
 
     # Convert to Tensors and build dataset
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
@@ -398,11 +405,11 @@ def main():
 
     # Setup CUDA, GPU & distributed training
     if args.local_rank == -1 or args.no_cuda:
-        device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+        device = torch.device("cuda:0" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = torch.cuda.device_count()
     else:  # Initializes the distributed backend which will take care of synchronizing nodes/GPUs
         torch.cuda.set_device(args.local_rank)
-        device = torch.device("cuda", args.local_rank)
+        device = torch.device("cuda:0", args.local_rank)
         torch.distributed.init_process_group(backend="nccl")
         args.n_gpu = 1
     args.device = device
@@ -504,8 +511,8 @@ def main():
                 writer.write("{} = {}\n".format(key, str(result[key])))
         # Save predictions
         output_test_predictions_file = os.path.join(args.output_dir, "test_predictions.txt")
-        with open(output_test_predictions_file, "w") as writer:
-            with open(os.path.join(args.data_dir, "test.txt"), "r") as f:
+        with open(output_test_predictions_file, "w", encoding="utf-8") as writer:
+            with open(os.path.join(args.data_dir, "test.txt"), "r", encoding="utf-8") as f:
                 example_id = 0
                 for line in f:
                     if line.startswith("-DOCSTART-") or line == "" or line == "\n":
@@ -513,9 +520,15 @@ def main():
                         if not predictions[example_id]:
                             example_id += 1
                     elif predictions[example_id]:
-                        output_line = line.split()[0] + " " + predictions[example_id].pop(0) + "\n"
+                        # print("example_id OK:", example_id)
+                        # '{:>10s} {:>10s}'.format('Hello', 'World')
+                        output_line = '{:<2s} {:<50s} {:<50s} {:<30s}\n'.\
+                            format(line.split()[0], predictions[example_id].pop(0), line.split()[1], line.split()[2])
+                        # output_line = line.split()[0] + " " + predictions[example_id].pop(0) + " " \
+                        #               + line.split()[1] + " " + line.split()[2] + "\n"
                         writer.write(output_line)
                     else:
+                        # print("example_id exceeded:", example_id)
                         logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split()[0])
 
     return results

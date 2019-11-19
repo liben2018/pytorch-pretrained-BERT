@@ -67,14 +67,25 @@ def read_examples_from_file(data_dir, mode):
                     guid_index += 1
                     words = []
                     labels = []
+            elif line == ' ':
+                words.append(line)
+                labels.append("O")
             else:
                 splits = line.split(" ")
-                words.append(splits[0])
-                if len(splits) > 1:
-                    labels.append(splits[-1].replace("\n", ""))
+                words.append(splits[0].replace("\n", ""))
+                if len(splits) == 3:
+                    labels.append(splits[1].replace("\n", ""))
                 else:
-                    # Examples could have no label for mode = "test"
-                    labels.append("O")
+                    print("Unexpected data:", line)
+                    pass
+                # original ===
+                # words.append(splits[0])
+                # if len(splits) > 1:
+                #     labels.append(splits[-1].replace("\n", ""))
+                # else:
+                #     # Examples could have no label for mode = "test"
+                #     labels.append("O")
+                # original ==
         if words:
             examples.append(InputExample(guid="%s-%d".format(mode, guid_index),
                                          words=words,
@@ -114,6 +125,7 @@ def convert_examples_to_features(examples,
         tokens = []
         label_ids = []
         for word, label in zip(example.words, example.labels):
+            # print('example: {}, example.words: {}, example.labels: {}'.format(example, example.words, example.labels))
             word_tokens = tokenizer.tokenize(word)
             tokens.extend(word_tokens)
             # Use the real label id for the first token of the word, and padding ids for the remaining tokens
@@ -203,7 +215,7 @@ def convert_examples_to_features(examples,
 
 def get_labels(path):
     if path:
-        with open(path, "r") as f:
+        with open(path, "r", encoding='utf-8') as f:
             labels = f.read().splitlines()
         if "O" not in labels:
             labels = ["O"] + labels
