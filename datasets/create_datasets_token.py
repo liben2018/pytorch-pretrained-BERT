@@ -1,3 +1,6 @@
+"""
+The script can be used to generate a token-level data sets.
+"""
 import os
 import sys
 import json
@@ -15,7 +18,7 @@ def get_classname_dict(file_path):
     ja_start = 0
     # ja_end = 0
     invoice_class_dict = dict()
-    with open(file_path, 'r') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
         lines = [x.strip() for x in lines if x not in ['\n', '']]
         # Python strip() 方法用于移除字符串头尾指定的字符（默认为空格）或字符序列。
@@ -39,6 +42,7 @@ def get_classname_dict(file_path):
     return invoice_class_dict, ja_list, eng_list
 
 
+# char-level mapping
 def build_map_string(text):
     map_char = []
     for i, char in enumerate(text):
@@ -49,7 +53,7 @@ def build_map_string(text):
 
 def ja_class_name_adjust(label):
     """
-    Adjust a mismatched label to match ja_class_name_list!
+    Adjust a mismatched label to match the ja_class_name_list!
     """
     if label == '当月買上消費税_v':
         label = '当月買上額消費税_v'
@@ -64,7 +68,7 @@ def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_p
     invoice_class_dict, ja_list, eng_list = get_classname_dict(class_name_file_path)
     out_of_list = []
     output_file_line_list = []
-    with open(input_file_path, 'r') as f:
+    with open(input_file_path, 'r', encoding='utf-8') as f:
         # data = json.load(f) # cannot be load because of too many lines of dict in files!
         dict_lines = f.readlines()
 
@@ -134,7 +138,23 @@ def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_p
                             print("k<0 or k>=len(text_data) item in use_IOB module!")
                 else:
                     print("Please tell me which of IOB and IOBES do you want to use!")
-            line_output_print.append('\n')  # split two line by ' '
+            ##
+            line_len = len(line_output_print)
+            max_line_length = 512
+            if line_len > max_line_length:
+                multi_line_list = []
+                print("len of line: {}, need to split to lines with length small than 512.".format(line_len))
+                n_split = (line_len // max_line_length) + 1
+                for i_n_split in range(n_split):
+                    list_char = line_output_print[i_n_split*max_line_length:(i_n_split+1)*max_line_length] + ['\n']
+                    # print(list_char)
+                    multi_line_list.extend(list_char)
+                line_output_print = multi_line_list
+            ##
+            # print("line_output_print[-1]:", line_output_print[-1], len(line_output_print[-1]))
+            if line_output_print[-1] not in ['\n']:
+                # print("line_output_print[-1]:", line_output_print[-1])
+                line_output_print.append('\n')  # split two line by ' '
             output_file_line_list.extend(line_output_print)
             # list_a.extend(list_b): [list_a_1, list_b_1]
             # list_a.append(list_b): [list_a_1, [list_b]]
@@ -157,9 +177,9 @@ def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_p
             label = raw_line[1]
             if label not in label_list:
                 label_list.append(label)
-    with open(label_file_path, 'w') as f:
+    with open(label_file_path, 'w', encoding='utf-8') as f:
         for label in label_list:
-            print('label:', label)
+            # print('label:', label)
             if label in ['\n', '\t']:
                 pass
             else:
@@ -176,19 +196,19 @@ def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_p
     dev_file_path = os.path.join(output_file_dir_path, 'dev.txt')
     test_file_path = os.path.join(output_file_dir_path, 'test.txt')
 
-    with open(train_file_path, 'w') as f:
+    with open(train_file_path, 'w', encoding='utf-8') as f:
         for item in list_train:
             if item == '\n':
                 f.write("%s" % item)
             else:
                 f.write("%s\n" % item)
-    with open(dev_file_path, 'w') as f:
+    with open(dev_file_path, 'w', encoding='utf-8') as f:
         for item in list_dev:
             if item == '\n':
                 f.write("%s" % item)
             else:
                 f.write("%s\n" % item)
-    with open(test_file_path, 'w') as f:
+    with open(test_file_path, 'w', encoding='utf-8') as f:
         for item in list_test:
             if item == '\n':
                 f.write("%s" % item)
@@ -201,17 +221,18 @@ def main():
     PATH_DIR = os.getcwd()
     print(PATH_DIR)
 
-    input_file = "./export_20191106.json"
+    input_file = "./export_20191106_split.json"
     raw_date_files_path = os.path.join(PATH_DIR, input_file)
 
-    output_dataset_dir = 'NER_data_1114_IOBES_Transformers'
+    output_dataset_dir = 'data_split'
     dataset_dir_path = os.path.join(PATH_DIR, output_dataset_dir)
-    make_new_path(dataset_dir_path)
+    make_new_path(dataset_dir_path)  # confirm the path is exist!
 
     class_name_file = 'class_name_invoice.txt'
     class_name_file_path = os.path.join(PATH_DIR, class_name_file)
-    label_file = 'label_invoice_ner.txt'
+    label_file = 'label_invoice_ner_test.txt'
     label_file_path = os.path.join(dataset_dir_path, label_file)
+
     create_ner_datasets(raw_date_files_path, dataset_dir_path, class_name_file_path, label_file_path)
 
 
