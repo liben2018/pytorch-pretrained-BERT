@@ -149,3 +149,13 @@ examples/jpner-model-test/
 examples/jpner-model-xlnet-test/
 examples/jpner-model/
 jp_pretrain_bert/Japanese_*
+datasets/*.txt
+datasets/*.json
+datasets/jpner_1119_split/
+examples/jpner_split_multilingual/
+ner/results
+weights/
+runs/
+*/runs/
+*/*/runs/
+
