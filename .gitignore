@@ -154,7 +154,7 @@ datasets/*.json
 datasets/jpner_1119_split/
 examples/jpner_split_multilingual/
 ner/results
-weights/
+weights/Japanese_*
 runs/
 */runs/
 */*/runs/
