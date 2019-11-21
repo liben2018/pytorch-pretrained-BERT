@@ -6,7 +6,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import argparse
 import glob
 import logging
-import os
+import os, shutil
 import json
 import sys
 import six
@@ -33,7 +33,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 
-from seqeval.metrics import precision_score, recall_score, f1_score, classification_report, accuracy_score
+from seqmetrics import precision_score, recall_score, f1_score, classification_report, accuracy_score
 from tensorboardX import SummaryWriter
 
 logger = logging.getLogger(__name__)
@@ -263,7 +263,8 @@ class AdamW(Optimizer):
         betas (tuple of 2 floats): Adams beta parameters (b1, b2). Default: (0.9, 0.999)
         eps (float): Adams epsilon. Default: 1e-6
         weight_decay (float): Weight decay. Default: 0.0
-        correct_bias (bool): can be set to False to avoid correcting bias in Adam (e.g. like in Bert TF repository). Default True.
+        correct_bias (bool): can be set to False to avoid correcting bias in Adam (e.g. like in Bert TF repository).
+                             Default True.
     """
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-6, weight_decay=0.0, correct_bias=True):
         if lr < 0.0:
@@ -360,8 +361,7 @@ class WarmupLinearSchedule(LambdaLR):
 def url_to_filename(url, etag=None):
     """
     Convert `url` into a hashed filename in a repeatable way.
-    If `etag` is specified, append its hash to the url's, delimited
-    by a period.
+    If `etag` is specified, append its hash to the url's, delimited by a period.
     If the url ends with .h5 (Keras HDF5 weights) ands '.h5' to the name
     so that TF 2.0 can identify it as a HDF5 file
     (see https://github.com/tensorflow/tensorflow/blob/00fad90125b18b80fe054de1055770cfb8fe4ba3/tensorflow/python/keras/engine/network.py#L1380)
@@ -588,7 +588,8 @@ class PretrainedConfig(object):
         """ Save a configuration object to the directory `save_directory`, so that it
             can be re-loaded using the :func:`~transformers.PretrainedConfig.from_pretrained` class method.
         """
-        assert os.path.isdir(save_directory), "Saving path should be a directory where the model and configuration can be saved"
+        assert os.path.isdir(save_directory), "Saving path should be a directory where " \
+                                              "the model and configuration can be saved"
 
         # If we save using the predefined names, we can load using `from_pretrained`
         output_config_file = os.path.join(save_directory, CONFIG_NAME)
@@ -656,7 +657,8 @@ class PretrainedConfig(object):
             config_file = pretrained_model_name_or_path
         # redirect to the cache, if necessary
         try:
-            resolved_config_file = cached_path(config_file, cache_dir=cache_dir, force_download=force_download, proxies=proxies)
+            resolved_config_file = cached_path(config_file, cache_dir=cache_dir, force_download=force_download,
+                                               proxies=proxies)
         except EnvironmentError:
             if pretrained_model_name_or_path in cls.pretrained_config_archive_map:
                 msg = "Couldn't reach server at '{}' to download pretrained model configuration file.".format(
@@ -866,7 +868,8 @@ class PreTrainedTokenizer(object):
 
     @property
     def sep_token(self):
-        """ Separation token (string). E.g. separate context and query in an input sequence. Log an error if used while not having been set. """
+        """ Separation token (string). E.g. separate context and query in an input sequence.
+        Log an error if used while not having been set. """
         if self._sep_token is None:
             logger.error("Using sep_token, but it is not set yet.")
         return self._sep_token
@@ -880,21 +883,24 @@ class PreTrainedTokenizer(object):
 
     @property
     def cls_token(self):
-        """ Classification token (string). E.g. to extract a summary of an input sequence leveraging self-attention along the full depth of the model. Log an error if used while not having been set. """
+        """ Classification token (string). E.g. to extract a summary of an input sequence leveraging self-attention
+        along the full depth of the model. Log an error if used while not having been set. """
         if self._cls_token is None:
             logger.error("Using cls_token, but it is not set yet.")
         return self._cls_token
 
     @property
     def mask_token(self):
-        """ Mask token (string). E.g. when training a model with masked-language modeling. Log an error if used while not having been set. """
+        """ Mask token (string). E.g. when training a model with masked-language modeling. Log an error if used while
+        not having been set. """
         if self._mask_token is None:
             logger.error("Using mask_token, but it is not set yet.")
         return self._mask_token
 
     @property
     def additional_special_tokens(self):
-        """ All the additional special tokens you may want to use (list of strings). Log an error if used while not having been set. """
+        """ All the additional special tokens you may want to use (list of strings). Log an error if used while not
+        having been set. """
         if self._additional_special_tokens is None:
             logger.error("Using additional_special_tokens, but it is not set yet.")
         return self._additional_special_tokens
@@ -948,7 +954,8 @@ class PreTrainedTokenizer(object):
 
     @property
     def sep_token_id(self):
-        """ Id of the separation token in the vocabulary. E.g. separate context and query in an input sequence. Log an error if used while not having been set. """
+        """ Id of the separation token in the vocabulary. E.g. separate context and query in an input sequence.
+        Log an error if used while not having been set. """
         return self.convert_tokens_to_ids(self.sep_token)
 
     @property
@@ -958,17 +965,20 @@ class PreTrainedTokenizer(object):
 
     @property
     def cls_token_id(self):
-        """ Id of the classification token in the vocabulary. E.g. to extract a summary of an input sequence leveraging self-attention along the full depth of the model. Log an error if used while not having been set. """
+        """ Id of the classification token in the vocabulary. E.g. to extract a summary of an input sequence leveraging
+        self-attention along the full depth of the model. Log an error if used while not having been set. """
         return self.convert_tokens_to_ids(self.cls_token)
 
     @property
     def mask_token_id(self):
-        """ Id of the mask token in the vocabulary. E.g. when training a model with masked-language modeling. Log an error if used while not having been set. """
+        """ Id of the mask token in the vocabulary. E.g. when training a model with masked-language modeling.
+        Log an error if used while not having been set. """
         return self.convert_tokens_to_ids(self.mask_token)
 
     @property
     def additional_special_tokens_ids(self):
-        """ Ids of all the additional special tokens in the vocabulary (list of integers). Log an error if used while not having been set. """
+        """ Ids of all the additional special tokens in the vocabulary (list of integers). Log an error if used while
+        not having been set. """
         return self.convert_tokens_to_ids(self.additional_special_tokens)
 
     def __init__(self, max_len=None, **kwargs):
@@ -994,7 +1004,8 @@ class PreTrainedTokenizer(object):
         for key, value in kwargs.items():
             if key in self.SPECIAL_TOKENS_ATTRIBUTES:
                 if key == 'additional_special_tokens':
-                    assert isinstance(value, (list, tuple)) and all(isinstance(t, str) or (six.PY2 and isinstance(t, unicode)) for t in value)
+                    assert isinstance(value, (list, tuple)) and \
+                           all(isinstance(t, str) or (six.PY2 and isinstance(t, unicode)) for t in value)
                 else:
                     assert isinstance(value, str) or (six.PY2 and isinstance(value, unicode))
                 setattr(self, key, value)
@@ -1078,7 +1089,8 @@ class PreTrainedTokenizer(object):
                     # If a directory is provided we look for the standard filenames
                     full_file_name = os.path.join(pretrained_model_name_or_path, file_name)
                 else:
-                    # If a path to a file is provided we use it (will only work for non-BPE tokenizer using a single vocabulary file)
+                    # If a path to a file is provided we use it
+                    # (will only work for non-BPE tokenizer using a single vocabulary file)
                     full_file_name = pretrained_model_name_or_path
                 if not os.path.exists(full_file_name):
                     logger.info("Didn't find file {}. We won't load it.".format(full_file_name))
@@ -1119,7 +1131,8 @@ class PreTrainedTokenizer(object):
                 if file_path is None:
                     resolved_vocab_files[file_id] = None
                 else:
-                    resolved_vocab_files[file_id] = cached_path(file_path, cache_dir=cache_dir, force_download=force_download, proxies=proxies)
+                    resolved_vocab_files[file_id] = cached_path(file_path, cache_dir=cache_dir,
+                                                                force_download=force_download, proxies=proxies)
         except EnvironmentError:
             if pretrained_model_name_or_path in s3_models:
                 msg = "Couldn't reach server at '{}' to download vocabulary files."
@@ -1355,7 +1368,8 @@ class PreTrainedTokenizer(object):
         for key, value in special_tokens_dict.items():
             assert key in self.SPECIAL_TOKENS_ATTRIBUTES
             if key == 'additional_special_tokens':
-                assert isinstance(value, (list, tuple)) and all(isinstance(t, str) or (six.PY2 and isinstance(t, unicode)) for t in value)
+                assert isinstance(value, (list, tuple)) and \
+                       all(isinstance(t, str) or (six.PY2 and isinstance(t, unicode)) for t in value)
                 added_tokens += self.add_tokens(value)
             else:
                 assert isinstance(value, str) or (six.PY2 and isinstance(value, unicode))
@@ -1408,8 +1422,7 @@ class PreTrainedTokenizer(object):
                         tokenized_text += [sub_text]
                 text_list = tokenized_text
 
-            return sum((self._tokenize(token, **kwargs) if token not \
-                                                           in self.added_tokens_encoder and token not in self.all_special_tokens \
+            return sum((self._tokenize(token, **kwargs) if token not in self.added_tokens_encoder and token not in self.all_special_tokens \
                             else [token] for token in tokenized_text), [])
 
         added_tokens = list(self.added_tokens_encoder.keys()) + self.all_special_tokens
@@ -1548,7 +1561,8 @@ class PreTrainedTokenizer(object):
             elif isinstance(text, (list, tuple)) and len(text) > 0 and isinstance(text[0], int):
                 return text
             else:
-                raise ValueError("Input is not valid. Should be a string, a list/tuple of strings or a list/tuple of integers.")
+                raise ValueError("Input is invalid. It Should be a string, a list/tuple of strings or"
+                                 "a list/tuple of integers.")
 
         first_ids = get_input_ids(text)
         second_ids = get_input_ids(text_pair) if text_pair is not None else None
@@ -1602,8 +1616,8 @@ class PreTrainedTokenizer(object):
 
                 ``overflowing_tokens``: list of overflowing tokens if a max length is specified.
 
-                ``special_tokens_mask``: if adding special tokens, this is a list of [0, 1], with 0 specifying special added
-                tokens and 1 specifying sequence tokens.
+                ``special_tokens_mask``: if adding special tokens, this is a list of [0, 1], with 0 specifying special
+                added tokens and 1 specifying sequence tokens.
         """
         pair = bool(pair_ids is not None)
         len_ids = len(ids)
@@ -1634,7 +1648,8 @@ class PreTrainedTokenizer(object):
             sequence = torch.tensor([sequence])
             token_type_ids = torch.tensor([token_type_ids])
         elif return_tensors is not None:
-            logger.warning("Unable to convert output to tensors format {}, PyTorch or TensorFlow is not available.".format(return_tensors))
+            logger.warning("Unable to convert output to tensors format {},"
+                           "PyTorch or TensorFlow is not available.".format(return_tensors))
 
         encoded_inputs["input_ids"] = sequence
         encoded_inputs["token_type_ids"] = token_type_ids
@@ -1646,13 +1661,15 @@ class PreTrainedTokenizer(object):
 
         return encoded_inputs
 
-    def truncate_sequences(self, ids, pair_ids=None, num_tokens_to_remove=0, truncation_strategy='longest_first', stride=0):
+    def truncate_sequences(self, ids, pair_ids=None, num_tokens_to_remove=0, truncation_strategy='longest_first',
+                           stride=0):
         """Truncates a sequence pair in place to the maximum length.
             truncation_strategy: string selected in the following options:
                 - 'longest_first' (default) Iteratively reduce the inputs sequence until the input is under max_length
                     starting from the longest one at each token (when there is a pair of input sequences).
                     Overflowing tokens only contains overflow from the first sequence.
-                - 'only_first': Only truncate the first sequence. raise an error if the first sequence is shorter or equal to than num_tokens_to_remove.
+                - 'only_first': Only truncate the first sequence. raise an error if the first sequence is shorter or
+                                equal to than num_tokens_to_remove.
                 - 'only_second': Only truncate the second sequence
                 - 'do_not_truncate': Does not truncate (raise an error if the input sequence is longer than max_length)
         """
@@ -1683,8 +1700,9 @@ class PreTrainedTokenizer(object):
         elif truncation_strategy == 'do_not_truncate':
             raise ValueError("Input sequence are too long for max_length. Please select a truncation strategy.")
         else:
-            raise ValueError("Truncation_strategy should be selected in ['longest_first', 'only_first', 'only_second', 'do_not_truncate']")
-        return (ids, pair_ids, overflowing_tokens)
+            raise ValueError("Truncation_strategy should be selected in"
+                             "['longest_first', 'only_first', 'only_second', 'do_not_truncate']")
+        return ids, pair_ids, overflowing_tokens
 
     def create_token_type_ids_from_sequences(self, token_ids_0, token_ids_1=None):
         logger.warning("This tokenizer does not make use of special tokens.")
@@ -1827,11 +1845,12 @@ class PreTrainedTokenizer(object):
 
     @staticmethod
     def clean_up_tokenization(out_string):
-        """ Clean up a list of simple English tokenization artifacts like spaces before punctuations and abreviated forms.
         """
-        out_string = out_string.replace(' .', '.').replace(' ?', '?').replace(' !', '!').replace(' ,', ','
-                                                                                                 ).replace(" ' ", "'").replace(" n't", "n't").replace(" 'm", "'m").replace(" do not", " don't"
-                                                                                                                                                                           ).replace(" 's", "'s").replace(" 've", "'ve").replace(" 're", "'re")
+        Clean up a list of simple English tokenization artifacts like spaces before punctuations and abreviated forms.
+        """
+        out_string = out_string.replace(' .', '.').replace(' ?', '?').replace(' !', '!').replace(' ,', ',').\
+            replace(" ' ", "'").replace(" n't", "n't").replace(" 'm", "'m").replace(" do not", " don't").\
+            replace(" 's", "'s").replace(" 've", "'ve").replace(" 're", "'re")
         return out_string
 
 
@@ -2254,19 +2273,24 @@ class BertTokenizer(PreTrainedTokenizer):
 class PreTrainedModel(nn.Module):
     r""" Base class for all models.
 
-        :class:`~transformers.PreTrainedModel` takes care of storing the configuration of the models and handles methods for loading/downloading/saving models
-        as well as a few methods common to all models to (i) resize the input embeddings and (ii) prune heads in the self-attention heads.
+        :class:`~transformers.PreTrainedModel` takes care of storing the configuration of the models and handles methods
+        for loading/downloading/saving models, as well as a few methods common to all models to (i) resize the input
+        embeddings and (ii) prune heads in the self-attention heads.
 
         Class attributes (overridden by derived classes):
-            - ``config_class``: a class derived from :class:`~transformers.PretrainedConfig` to use as configuration class for this model architecture.
-            - ``pretrained_model_archive_map``: a python ``dict`` of with `short-cut-names` (string) as keys and `url` (string) of associated pretrained weights as values.
-            - ``load_tf_weights``: a python ``method`` for loading a TensorFlow checkpoint in a PyTorch model, taking as arguments:
+            - ``config_class``: a class derived from :class:`~transformers.PretrainedConfig` to use as configuration
+                class for this model architecture.
+            - ``pretrained_model_archive_map``: a python ``dict`` of with `short-cut-names` (string) as keys and
+                `url` (string) of associated pretrained weights as values.
+            - ``load_tf_weights``: a python ``method`` for loading a TensorFlow checkpoint in a PyTorch model,
+                taking as arguments:
 
                 - ``model``: an instance of the relevant subclass of :class:`~transformers.PreTrainedModel`,
                 - ``config``: an instance of the relevant subclass of :class:`~transformers.PretrainedConfig`,
                 - ``path``: a path (string) to the TensorFlow checkpoint.
 
-            - ``base_model_prefix``: a string indicating the attribute associated to the base model in derived classes of the same architecture adding modules on top of the base model.
+            - ``base_model_prefix``: a string indicating the attribute associated to the base model in derived classes
+            of the same architecture adding modules on top of the base model.
     """
     config_class = None
     pretrained_model_archive_map = {}
@@ -2346,8 +2370,10 @@ class PreTrainedModel(nn.Module):
         Arguments:
 
             new_num_tokens: (`optional`) int:
-                New number of tokens in the embedding matrix. Increasing the size will add newly initialized vectors at the end. Reducing the size will remove vectors from the end.
-                If not provided or None: does nothing and just returns a pointer to the input tokens ``torch.nn.Embeddings`` Module of the model.
+                New number of tokens in the embedding matrix. Increasing the size will add newly initialized vectors at
+                the end. Reducing the size will remove vectors from the end.
+                If not provided or None: does nothing and just returns a pointer to the input tokens
+                ``torch.nn.Embeddings`` Module of the model.
 
         Return: ``torch.nn.Embeddings``
             Pointer to the input tokens Embeddings Module of the model
@@ -2424,7 +2450,8 @@ class PreTrainedModel(nn.Module):
 
             Arguments:
 
-                heads_to_prune: dict with keys being selected layer indices (`int`) and associated values being the list of heads to prune in said layer (list of `int`).
+                heads_to_prune: dict with keys being selected layer indices (`int`) and
+                associated values being the list of heads to prune in said layer (list of `int`).
                 E.g. {1: [0, 2], 2: [2, 3]} will prune heads 0 and 2 on layer 1 and heads 2 and 3 on layer 2.
         """
         # save new sets of pruned heads as union of previously stored pruned heads and newly pruned heads
@@ -2438,7 +2465,8 @@ class PreTrainedModel(nn.Module):
         """ Save a model and its configuration file to a directory, so that it
             can be re-loaded using the `:func:`~transformers.PreTrainedModel.from_pretrained`` class method.
         """
-        assert os.path.isdir(save_directory), "Saving path should be a directory where the model and configuration can be saved"
+        assert os.path.isdir(save_directory), "Saving path should be a directory where" \
+                                              "the model and configuration can be saved"
 
         # Only save the model itself if we are using distributed training
         model_to_save = self.module if hasattr(self, 'module') else self
@@ -2558,12 +2586,16 @@ class PreTrainedModel(nn.Module):
             elif os.path.isfile(pretrained_model_name_or_path):
                 archive_file = pretrained_model_name_or_path
             else:
-                assert from_tf, "Error finding file {}, no file or TF 1.X checkpoint found".format(pretrained_model_name_or_path)
+                assert from_tf, "Error finding file {}, no file or TF 1.X checkpoint found".format(
+                    pretrained_model_name_or_path)
                 archive_file = pretrained_model_name_or_path + ".index"
 
             # redirect to the cache, if necessary
             try:
-                resolved_archive_file = cached_path(archive_file, cache_dir=cache_dir, force_download=force_download, proxies=proxies)
+                resolved_archive_file = cached_path(archive_file,
+                                                    cache_dir=cache_dir,
+                                                    force_download=force_download,
+                                                    proxies=proxies)
             except EnvironmentError:
                 if pretrained_model_name_or_path in cls.pretrained_model_archive_map:
                     msg = "Couldn't reach server at '{}' to download pretrained weights.".format(
@@ -2599,15 +2631,17 @@ class PreTrainedModel(nn.Module):
         if from_tf:
             if resolved_archive_file.endswith('.index'):
                 # Load from a TensorFlow 1.X checkpoint - provided by original authors
-                model = cls.load_tf_weights(model, config, resolved_archive_file[:-6])  # Remove the '.index'
+                model = cls.load_tf_weights(model, config, resolved_archive_file[:-6])
+                # Remove the '.index'
             else:
                 # Load from our TensorFlow 2.0 checkpoints
                 try:
                     from transformers import load_tf2_checkpoint_in_pytorch_model
                     model = load_tf2_checkpoint_in_pytorch_model(model, resolved_archive_file, allow_missing_keys=True)
                 except ImportError as e:
-                    logger.error("Loading a TensorFlow model in PyTorch, requires both PyTorch and TensorFlow to be installed. Please see "
-                                 "https://pytorch.org/ and https://www.tensorflow.org/install/ for installation instructions.")
+                    logger.error("Loading a TensorFlow model in PyTorch, requires both PyTorch and TensorFlow to be"
+                                 "installed. Please see https://pytorch.org/ and"
+                                 "https://www.tensorflow.org/install/ for installation instructions.")
                     raise e
         else:
             # Convert old format to new format if needed from a PyTorch state_dict
@@ -2849,12 +2883,13 @@ class BertSelfAttention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def forward(self, hidden_states, attention_mask=None, head_mask=None, encoder_hidden_states=None, encoder_attention_mask=None):
+    def forward(self, hidden_states, attention_mask=None, head_mask=None,
+                encoder_hidden_states=None, encoder_attention_mask=None):
+
         mixed_query_layer = self.query(hidden_states)
 
-        # If this is instantiated as a cross-attention module, the keys
-        # and values come from an encoder; the attention mask needs to be
-        # such that the encoder's padding tokens are not attended to.
+        # If this is instantiated as a cross-attention module, the keys and values come from an encoder;
+        # the attention mask needs to be such that the encoder's padding tokens are not attended to.
         if encoder_hidden_states is not None:
             mixed_key_layer = self.key(encoder_hidden_states)
             mixed_value_layer = self.value(encoder_hidden_states)
@@ -2939,8 +2974,10 @@ class BertAttention(nn.Module):
         self.self.all_head_size = self.self.attention_head_size * self.self.num_attention_heads
         self.pruned_heads = self.pruned_heads.union(heads)
 
-    def forward(self, hidden_states, attention_mask=None, head_mask=None, encoder_hidden_states=None, encoder_attention_mask=None):
-        self_outputs = self.self(hidden_states, attention_mask, head_mask, encoder_hidden_states, encoder_attention_mask)
+    def forward(self, hidden_states, attention_mask=None, head_mask=None,
+                encoder_hidden_states=None, encoder_attention_mask=None):
+        self_outputs = self.self(hidden_states, attention_mask, head_mask,
+                                 encoder_hidden_states, encoder_attention_mask)
         attention_output = self.output(self_outputs[0], hidden_states)
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
         return outputs
@@ -2985,13 +3022,20 @@ class BertLayer(nn.Module):
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
 
-    def forward(self, hidden_states, attention_mask=None, head_mask=None, encoder_hidden_states=None, encoder_attention_mask=None):
+    def forward(self, hidden_states, attention_mask=None, head_mask=None,
+                encoder_hidden_states=None,
+                encoder_attention_mask=None):
+
         self_attention_outputs = self.attention(hidden_states, attention_mask, head_mask)
         attention_output = self_attention_outputs[0]
         outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
 
         if self.is_decoder and encoder_hidden_states is not None:
-            cross_attention_outputs = self.crossattention(attention_output, attention_mask, head_mask, encoder_hidden_states, encoder_attention_mask)
+            cross_attention_outputs = self.crossattention(attention_output,
+                                                          attention_mask,
+                                                          head_mask,
+                                                          encoder_hidden_states,
+                                                          encoder_attention_mask)
             attention_output = cross_attention_outputs[0]
             outputs = outputs + cross_attention_outputs[1:]  # add cross attentions if we output attention weights
 
@@ -3008,14 +3052,23 @@ class BertEncoder(nn.Module):
         self.output_hidden_states = config.output_hidden_states
         self.layer = nn.ModuleList([BertLayer(config) for _ in range(config.num_hidden_layers)])
 
-    def forward(self, hidden_states, attention_mask=None, head_mask=None, encoder_hidden_states=None, encoder_attention_mask=None):
+    def forward(self, hidden_states,
+                attention_mask=None,
+                head_mask=None,
+                encoder_hidden_states=None,
+                encoder_attention_mask=None):
+
         all_hidden_states = ()
         all_attentions = ()
         for i, layer_module in enumerate(self.layer):
             if self.output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
-            layer_outputs = layer_module(hidden_states, attention_mask, head_mask[i], encoder_hidden_states, encoder_attention_mask)
+            layer_outputs = layer_module(hidden_states,
+                                         attention_mask,
+                                         head_mask[i],
+                                         encoder_hidden_states,
+                                         encoder_attention_mask)
             hidden_states = layer_outputs[0]
 
             if self.output_attentions:
@@ -3067,8 +3120,10 @@ class BertModel(BertPreTrainedModel):
             of shape ``(batch_size, sequence_length, hidden_size)``:
             Hidden-states of the model at the output of each layer plus the initial embedding outputs.
         **attentions**: (`optional`, returned when ``config.output_attentions=True``)
-            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
-            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
+            list of ``torch.FloatTensor`` (one for each layer) of shape
+            ``(batch_size, num_heads, sequence_length, sequence_length)``:
+            Attentions weights after the attention softmax,
+            used to compute the weighted average in the self-attention heads.
 
     Examples::
 
@@ -3109,8 +3164,7 @@ class BertModel(BertPreTrainedModel):
 
         The model can behave as an encoder (with only self-attention) as well
         as a decoder, in which case a layer of cross-attention is added between
-        the self-attention layers, following the architecture described in `Attention is all you need`_ by Ashish Vaswani,
-        Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser and Illia Polosukhin.
+        the self-attention layers, following the architecture described in `Attention is all you need`.
 
         To behave as an decoder the model needs to be initialized with the
         `is_decoder` argument of the configuration set to `True`; an
@@ -3170,7 +3224,8 @@ class BertModel(BertPreTrainedModel):
         if encoder_attention_mask.dim() == 2:
             encoder_extended_attention_mask = encoder_attention_mask[:, None, None, :]
 
-        encoder_extended_attention_mask = encoder_extended_attention_mask.to(dtype=next(self.parameters()).dtype)  # fp16 compatibility
+        encoder_extended_attention_mask = encoder_extended_attention_mask.to(dtype=next(self.parameters()).dtype)
+        # fp16 compatibility
         encoder_extended_attention_mask = (1.0 - encoder_extended_attention_mask) * -10000.0
 
         # Prepare head mask if needed
@@ -3183,12 +3238,17 @@ class BertModel(BertPreTrainedModel):
                 head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
                 head_mask = head_mask.expand(self.config.num_hidden_layers, -1, -1, -1, -1)
             elif head_mask.dim() == 2:
-                head_mask = head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)  # We can specify head_mask for each layer
-            head_mask = head_mask.to(dtype=next(self.parameters()).dtype)  # switch to fload if need + fp16 compatibility
+                head_mask = head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)
+                # We can specify head_mask for each layer
+            head_mask = head_mask.to(dtype=next(self.parameters()).dtype)
+            # switch to fload if need + fp16 compatibility
         else:
             head_mask = [None] * self.config.num_hidden_layers
 
-        embedding_output = self.embeddings(input_ids=input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds)
+        embedding_output = self.embeddings(input_ids=input_ids,
+                                           position_ids=position_ids,
+                                           token_type_ids=token_type_ids,
+                                           inputs_embeds=inputs_embeds)
         encoder_outputs = self.encoder(embedding_output,
                                        attention_mask=extended_attention_mask,
                                        head_mask=head_mask,
@@ -3197,7 +3257,8 @@ class BertModel(BertPreTrainedModel):
         sequence_output = encoder_outputs[0]
         pooled_output = self.pooler(sequence_output)
 
-        outputs = (sequence_output, pooled_output,) + encoder_outputs[1:]  # add hidden_states and attentions if they are here
+        outputs = (sequence_output, pooled_output,) + encoder_outputs[1:]
+        # add hidden_states and attentions if they are here
         return outputs  # sequence_output, pooled_output, (hidden_states), (attentions)
 
 
@@ -3221,8 +3282,10 @@ class BertForTokenClassification(BertPreTrainedModel):
             of shape ``(batch_size, sequence_length, hidden_size)``:
             Hidden-states of the model at the output of each layer plus the initial embedding outputs.
         **attentions**: (`optional`, returned when ``config.output_attentions=True``)
-            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
-            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
+            list of ``torch.FloatTensor`` (one for each layer) of shape
+            ``(batch_size, num_heads, sequence_length, sequence_length)``:
+            Attentions weights after the attention softmax,
+            used to compute the weighted average in the self-attention heads.
 
     Examples::
 
@@ -3582,7 +3645,8 @@ def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
 
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     # Log metrics
-                    if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
+                    # Only evaluate when single GPU otherwise metrics may not average well
+                    if args.local_rank == -1 and args.evaluate_during_training:
                         results, _ = evaluate(args, model, tokenizer, labels, pad_token_label_id, mode="dev")
                         for key, value in results.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
@@ -3638,7 +3702,7 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
             inputs = {"input_ids": batch[0],
                       "attention_mask": batch[1],
                       "token_type_ids": batch[2] if args.model_type in ["bert", "xlnet"] else None,
-                      # XLM and RoBERTa don"t use segment_ids
+                      # XLM and RoBERTa don't use segment_ids
                       "labels": batch[3]}
             outputs = model(**inputs)
             tmp_eval_loss, logits = outputs[:2]
@@ -3700,6 +3764,8 @@ def load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode):
     else:
         logger.info("Creating features from dataset file at %s", args.data_dir)
         examples = read_examples_from_file(args.data_dir, mode)
+        # roberta uses an extra separator b/w pairs of sentences,
+        # cf. github.com/pytorch/fairseq/commit/1684e166e3da03f5b600dbb7855cb98ddfcd0805
         features = convert_examples_to_features(examples, labels, args.max_seq_length, tokenizer,
                                                 cls_token_at_end=bool(args.model_type in ["xlnet"]),
                                                 # xlnet has a cls token at the end
@@ -3707,8 +3773,6 @@ def load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode):
                                                 cls_token_segment_id=2 if args.model_type in ["xlnet"] else 0,
                                                 sep_token=tokenizer.sep_token,
                                                 sep_token_extra=bool(args.model_type in ["roberta"]),
-                                                # roberta uses an extra separator b/w pairs of sentences,
-                                                # cf. github.com/pytorch/fairseq/commit/1684e166e3da03f5b600dbb7855cb98ddfcd0805
                                                 pad_on_left=bool(args.model_type in ["xlnet"]),
                                                 # pad on the left for xlnet
                                                 pad_token=tokenizer.convert_tokens_to_ids([tokenizer.pad_token])[0],
@@ -3743,7 +3807,8 @@ def main():
     parser.add_argument("--model_type", default=None, type=str, required=True,
                         help="Model type selected in the list: " + ", ".join(MODEL_CLASSES.keys()))
     parser.add_argument("--model_name_or_path", default=None, type=str, required=True,
-                        help="Path to pre-trained model or shortcut name selected in the list: " + ", ".join(ALL_MODELS))
+                        help="Path to pre-trained model or"
+                             "shortcut name selected in the list: " + ", ".join(ALL_MODELS))
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
@@ -3878,7 +3943,8 @@ def main():
                                         cache_dir=args.cache_dir if args.cache_dir else None)
 
     if args.local_rank == 0:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        torch.distributed.barrier()
+        # Make sure only the first process in distributed training will download model & vocab
 
     model.to(args.device)
 
@@ -3899,7 +3965,8 @@ def main():
         logger.info("Saving model checkpoint to %s", args.output_dir)
         # Save a trained model, configuration and tokenizer using `save_pretrained()`.
         # They can then be reloaded using `from_pretrained()`
-        model_to_save = model.module if hasattr(model, "module") else model  # Take care of distributed/parallel training
+        model_to_save = model.module if hasattr(model, "module") else model
+        # Take care of distributed/parallel training
         model_to_save.save_pretrained(args.output_dir)
         tokenizer.save_pretrained(args.output_dir)
 
@@ -3912,7 +3979,8 @@ def main():
         tokenizer = tokenizer_class.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
         checkpoints = [args.output_dir]
         if args.eval_all_checkpoints:
-            checkpoints = list(os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True)))
+            checkpoints = list(os.path.dirname(c) for c in
+                               sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True)))
             logging.getLogger("pytorch_transformers.modeling_utils").setLevel(logging.WARN)  # Reduce logging
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
         for checkpoint in checkpoints:
@@ -3949,7 +4017,6 @@ def main():
                         if not predictions[example_id]:
                             example_id += 1
                     elif predictions[example_id]:
-                        # print("example_id OK:", example_id)
                         # '{:>10s} {:>10s}'.format('Hello', 'World')
                         output_line = '{:<2s} {:<50s} {:<50s} {:<30s}\n'.\
                             format(line.split()[0], predictions[example_id].pop(0), line.split()[1], line.split()[2])
@@ -3957,7 +4024,7 @@ def main():
                         #               + line.split()[1] + " " + line.split()[2] + "\n"
                         writer.write(output_line)
                     else:
-                        # print("example_id exceeded:", example_id)
+                        print("example_id exceeded:", example_id)
                         logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split()[0])
 
     return results
