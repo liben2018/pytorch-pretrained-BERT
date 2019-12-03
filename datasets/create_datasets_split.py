@@ -16,7 +16,6 @@ def get_classname_dict(file_path):
     eng_start = 0
     eng_end = 0
     ja_start = 0
-    # ja_end = 0
     invoice_class_dict = dict()
     with open(file_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
@@ -53,24 +52,49 @@ def build_map_string(text):
 
 def ja_class_name_adjust(label):
     """
-    Adjust a mismatched label to match the ja_class_name_list!
+    Adjust a mismatched label to match ja_class_name_list!
     """
+    label=label.replace("（", "(").replace("）", ")")
     if label == '当月買上消費税_v':
         label = '当月買上額消費税_v'
-    if label == '今回請求額_v':
+    if label == '今回請求額_v' or label == '今回請求額':
         label = '今回請求金額_v'
-    if label == '前回請求額_v':
+    if label == '前回請求額_v' or label == '前回請求額':
         label = '前回請求金額_v'
+    if label == '銀行口座(銀行名)':
+        label = '振込口座(銀行名)'
+    if label == '銀行口座(支店名)':
+        label = '振込口座(支店名)'
+    if label == '請求先会社名2':
+        label = '請求先会社名_2'
+    if label == '仕入先コード':
+        label = '仕入先コード_v'
+    if label == '支店コード':
+        label = '支店コード_v'
+    if label == '締日':
+        label = '締日_v'
+    if label == '入金額':
+        label = '入金額_v'
+    if label == '振込手数料':
+        label = '振込手数料_v'
+    if label == '請求元会社名2':
+        label = '請求元会社名_2'
+    if label == '銀行コード':
+        label = '銀行コード_v'
     return label
 
 
-def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_path, label_file_path):
+def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_path, label_file_path, split_scale):
     invoice_class_dict, ja_list, eng_list = get_classname_dict(class_name_file_path)
     out_of_list = []
     output_file_line_list = []
     with open(input_file_path, 'r', encoding='utf-8') as f:
         # data = json.load(f) # cannot be load because of too many lines of dict in files!
         dict_lines = f.readlines()
+
+        long_seq_num = 0
+        split_seq_len_list = []
+        num_split_to = 0
 
         # Treat one invoice data!
         for i, dict_line in enumerate(dict_lines):
@@ -143,13 +167,16 @@ def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_p
             max_line_length = 512
             if line_len > max_line_length:
                 multi_line_list = []
-                print("len of line: {}, need to split to lines with length small than 512.".format(line_len))
+                split_seq_len_list.append(line_len)
+                # print("len of line: {}, need to split to lines with length small than 512.".format(line_len))
                 n_split = (line_len // max_line_length) + 1
                 for i_n_split in range(n_split):
                     list_char = line_output_print[i_n_split*max_line_length:(i_n_split+1)*max_line_length] + ['\n']
                     # print(list_char)
                     multi_line_list.extend(list_char)
                 line_output_print = multi_line_list
+                long_seq_num += 1
+                num_split_to += 1 * n_split
             ##
             # print("line_output_print[-1]:", line_output_print[-1], len(line_output_print[-1]))
             if line_output_print[-1] not in ['\n']:
@@ -158,6 +185,8 @@ def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_p
             output_file_line_list.extend(line_output_print)
             # list_a.extend(list_b): [list_a_1, list_b_1]
             # list_a.append(list_b): [list_a_1, [list_b]]
+        print("Splitting {} long seq to {} seqs has completed!".format(long_seq_num, num_split_to))
+        print("Split seq length: {}".format(split_seq_len_list))
     # output_file_line_list = [x for x in output_file_line_list if x[0] not in [' ']]
     new_list = []
     for x in output_file_line_list:
@@ -187,9 +216,15 @@ def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_p
 
     # x.strip()
     total_data = len(output_file_line_list)
-    list_train = output_file_line_list[0:int(total_data*0.8)]
-    list_dev = output_file_line_list[int(total_data*0.8):int(total_data*0.9)]
-    list_test = output_file_line_list[int(total_data*0.9):]
+    assert isinstance(split_scale, list)
+    train_scale, dev_scale, test_scale = split_scale[0], split_scale[1], split_scale[2]
+    assert train_scale + dev_scale + test_scale == 1, "Just support float scale right now!"
+    num_train = int(total_data * train_scale)
+    num_dev = int(total_data * dev_scale)
+    num_test = int(total_data * test_scale)
+    list_train = output_file_line_list[0:num_train]
+    list_dev = output_file_line_list[num_train:num_train+num_dev]
+    list_test = output_file_line_list[num_train+num_dev:]
     assert total_data == len(list_test) + len(list_dev) + len(list_train)
 
     train_file_path = os.path.join(output_file_dir_path, 'train.txt')
@@ -214,26 +249,27 @@ def create_ner_datasets(input_file_path, output_file_dir_path, class_name_file_p
                 f.write("%s" % item)
             else:
                 f.write("%s\n" % item)
-    # create_split_datasets(text, labels, dataset_files_path)
 
 
 def main():
     PATH_DIR = os.getcwd()
     print(PATH_DIR)
 
-    input_file = "./export_20191106_split.json"
+    input_file = "./export_20191127_sum.json"
     raw_date_files_path = os.path.join(PATH_DIR, input_file)
 
-    output_dataset_dir = 'data_split'
+    output_dataset_dir = 'jpner_1128_split'
     dataset_dir_path = os.path.join(PATH_DIR, output_dataset_dir)
     make_new_path(dataset_dir_path)  # confirm the path is exist!
 
-    class_name_file = 'class_name_invoice.txt'
+    class_name_file = 'class_name_invoice_1128updated.txt'
     class_name_file_path = os.path.join(PATH_DIR, class_name_file)
-    label_file = 'label_invoice_ner_test.txt'
+    label_file = 'label_invoice_ner.txt'
     label_file_path = os.path.join(dataset_dir_path, label_file)
-
-    create_ner_datasets(raw_date_files_path, dataset_dir_path, class_name_file_path, label_file_path)
+    split_scale = [1.0, 0.0, 0.0]  # num_train : num_dev : num_test
+    assert isinstance(split_scale, list)
+    assert split_scale[0] + split_scale[1] + split_scale[2] == 1.0, "Just support float scale right now!"
+    create_ner_datasets(raw_date_files_path, dataset_dir_path, class_name_file_path, label_file_path, split_scale)
 
 
 if __name__ == "__main__":

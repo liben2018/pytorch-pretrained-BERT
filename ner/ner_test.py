@@ -3472,12 +3472,15 @@ def convert_examples_to_features(examples,
         # For classification tasks, the first vector (corresponding to [CLS]) is
         # used as as the "sentence vector". Note that this only makes sense because
         # the entire model is fine-tuned.
+
         tokens += [sep_token]
         label_ids += [pad_token_label_id]
+
         if sep_token_extra:
             # roberta uses an extra separator b/w pairs of sentences
             tokens += [sep_token]
             label_ids += [pad_token_label_id]
+
         segment_ids = [sequence_a_segment_id] * len(tokens)
 
         if cls_token_at_end:
@@ -3511,9 +3514,17 @@ def convert_examples_to_features(examples,
         assert len(input_ids) == max_seq_length
         assert len(input_mask) == max_seq_length
         assert len(segment_ids) == max_seq_length
+
+        # deal with len(label_ids) > max_seq_length
+        try:
+            assert len(label_ids) == max_seq_length
+        except AssertionError:
+            if len(label_ids) > max_seq_length:
+                label_ids = label_ids[0:max_seq_length]
+
         assert len(label_ids) == max_seq_length
 
-        if ex_index < 5:
+        if ex_index < 2:
             logger.info("*** Example ***")
             logger.info("guid: %s", example.guid)
             logger.info("tokens: %s", " ".join([str(x) for x in tokens]))
@@ -3897,7 +3908,7 @@ def main():
         ptvsd.enable_attach(address=(args.server_ip, args.server_port), redirect_output=True)
         ptvsd.wait_for_attach()
 
-    # Setup CUDA, GPU & distributed training
+    # Setup CUDA, GPU & distributed training, local_rank: current GPU_id
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda:0" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = torch.cuda.device_count()
